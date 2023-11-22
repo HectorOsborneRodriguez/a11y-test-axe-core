@@ -8,13 +8,14 @@ const outputDir = './dist';
 
 // Check if the directory exists
 if (!fs.existsSync(outputDir)) {
-// synchronously create a directory
-  fs.mkdirSync(outputDir)
+    // synchronously create a directory
+    fs.mkdirSync(outputDir)
 }
 
 const { program } = require('commander');
 program
     .option('-u, --url <value>', 'Page URL to be scanned')
+    .option('-p, --path <value>', 'Path to a .md /.txt file with a list of URLs file to be analized')
     .option('-c, --comp, --component  <value>', 'Component CSS selector to be analized. Example: ".nl-filters", "header", "footer"')
     .option('-o, --output <value>', 'Output file name')
     .name('a11y-test')
@@ -24,49 +25,65 @@ program
 program.parse(process.argv);
 const options = program.opts();
 
+const path = options.path ? options.path : null;
+console.log(`URLs listed in ${path} will be analized `);
 
-const url = options.url ? options.url : 'http://www.canadiantire.ca';
-console.log(`Inspecting ${url}`);
+if (path) {
+    fs.readFile(path, 'utf8', function (err, data) {
+        if (err) throw err;
+        const urls = data.split('\n');
+        urls.forEach((url, index) => {
+            let newURL = url.replace(/^https?:\/\//, '');
+            let output = newURL.split(':').length > 1 ? `${newURL.split(':')[1]}.json` : `output.${index}.json`;
+            a11yTest(url, `dist/${output}`)
+        });
+    });
 
-let comp = options.comp ? options.comp : 'body'; 
-console.log(`HTML/Component selector: "${comp}"`);
 
-const output = options.output ? options.output : 'dist/results.json';
-console.log(`Writing results in: ${output}`);
+} else {
+    const url = options.url ? options.url : 'http://www.canadiantire.ca';
+    console.log(`Inspecting ${url}`);
+
+    let comp = options.comp ? options.comp : 'body';
+    console.log(`HTML/Component selector: "${comp}"`);
+
+    const output = options.output ? options.output : 'dist/results.json';
+    console.log(`Writing results in: ${output}`);
+}
 
 
-// SPECIFIC TEST FROM HERE
-// Testing Store Locator Button
-// Selector: .nl-primary-navigation .nl-store-locator--section-button'
-const screenshot = `dist/a11y-${comp}.png`
-try {
-    (async () => {
-        const browser = await puppeteer.launch({ headless: 'new' })
-        const page = await browser.newPage()
-        await page.setViewport({ width: 1280, height: 800 })
-        await page.goto(url);
-        await page.waitForSelector('.nl-primary-navigation-bar .nl-store-locator--section-button')
-        await page.screenshot({ path: screenshot })
+const a11yTest = (url, output) => {
+    // SPECIFIC TEST FROM HERE
+    console.log(`Inspecting ${url}`);
+    const screenshot = `${output}.png`
+    try {
+        (async () => {
+            const browser = await puppeteer.launch({ headless: 'new' })
+            const page = await browser.newPage()
+            await page.setViewport({ width: 1280, height: 800 })
+            await page.goto(url);
+            await page.screenshot({ path: screenshot })
 
-        // Execute Axe
-        const results = await new AxePuppeteer(page)
-            .withTags(['wcag2a', 'wcag2aa'])
-            .analyze()
+            // Execute Axe
+            const results = await new AxePuppeteer(page)
+                .withTags(['wcag2a', 'wcag2aa'])
+                .analyze()
 
-        // Write Report in a File
-        fs.writeFile(output, JSON.stringify(results, null, 2), (error) => {
-            if (error) {
-                console.log('An error has ocurred', error);
-                return;
-            }
-        })
+            // Write Report in a File
+            fs.writeFile(output, JSON.stringify(results, null, 2), (error) => {
+                if (error) {
+                    console.log('An error has ocurred', error);
+                    return;
+                }
+            })
 
-        console.log(`Found ${results.violations.length} violations`)
-        await page.close();
-        await browser.close();
+            console.log(`Found ${results.violations.length} violations`)
+            await page.close();
+            await browser.close();
 
-        console.log('See screenshot: ' + screenshot)
-    })()
-} catch (err) {
-    console.error(err)
+            console.log('See screenshot: ' + screenshot)
+        })()
+    } catch (err) {
+        console.error(err)
+    }
 }
