@@ -1,0 +1,18 @@
+{
+  "name": "a11y-test-axe-core",
+  "version": "1.0.0",
+  "description": "Bare bone repo to test websites with npm axe-core",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js -u http://www.canadiantire.ca -o dist/ctc.json",
+    "start": "node index.js",
+    "jest": "jest"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@axe-core/puppeteer": "^4.7.0",
+    "commander": "^10.0.1",
+    "jest": "^29.5.0"
+  }
+}
